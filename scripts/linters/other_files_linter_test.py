@@ -340,6 +340,28 @@ class CustomLintChecksManagerTests(test_utils.LinterTestBase):
             self.assertEqual('Third party type defs', error_messages.name)
             self.assertTrue(error_messages.failed)
 
+    def test_check_third_party_libs_type_defs_non_package_source(self) -> None:
+        non_package_libs: List[other_files_linter.ThirdPartyLibDict] = [
+            {
+                'name': 'Other',
+                'dependency_key': 'other',
+                'dependency_source': 'other_source',
+                'type_defs_filename_prefix': 'other-defs-',
+            }
+        ]
+        libs_swap = self.swap(
+            other_files_linter, 'THIRD_PARTY_LIBS', non_package_libs
+        )
+        with self.open_swap, self.listdir_swap, self.print_swap, libs_swap:
+            error_messages = other_files_linter.CustomLintChecksManager(
+                FILE_CACHE
+            ).check_third_party_libs_type_defs()
+        self.assert_same_list_elements(
+            ['There are no type definitions for Other in the typings dir.'],
+            error_messages.get_report(),
+        )
+        self.assertTrue(error_messages.failed)
+
     def test_check_github_workflows_have_name_checks(self) -> None:
         def mock_listdir(unused_path: str) -> List[str]:
             return ['pass.yml', 'fail.yml', 'README']
@@ -777,6 +799,89 @@ class CustomLintChecksManagerTests(test_utils.LinterTestBase):
                     '    "url": "http://localhost:8181/about",'
                     '    "page_module": '
                     '"core/templates/pages/about-page/about-page.module.ts"'
+                    '  }'
+                    '}'
+                )
+            raise AssertionError('Unexpected file path: %s' % path)
+
+        read_swap = self.swap(FILE_CACHE, 'read', mock_read)
+        with read_swap:
+            result = other_files_linter.CustomLintChecksManager(
+                FILE_CACHE
+            ).check_lighthouse_page_coverage()
+        self.assertEqual('Lighthouse page coverage', result.name)
+        self.assertFalse(result.failed)
+
+    def test_check_lighthouse_page_coverage_module_without_prefix_or_suffix(
+        self,
+    ) -> None:
+        """A page_module without the core/templates/ prefix or the .ts suffix
+        is matched as is.
+        """
+
+        def mock_read(path: str) -> str:
+            if path == other_files_linter.APP_ROUTING_MODULE_FILEPATH:
+                return '\n'.join(
+                    [
+                        'const routes: Route[] = [',
+                        '  {',
+                        '    path: AppConstants.PAGES_REGISTERED_WITH_FRONTEND'
+                        '.SPLASH.ROUTE,',
+                        '    loadChildren: () =>',
+                        '      import(\'pages/splash-page/splash-page.module\')',
+                        '  },',
+                        '];',
+                    ]
+                )
+            if path == other_files_linter.LIGHTHOUSE_PAGES_JSON_FILEPATH:
+                return (
+                    '{'
+                    '  "splash": {'
+                    '    "url": "http://localhost:8181/",'
+                    '    "page_module": '
+                    '"pages/splash-page/splash-page.module"'
+                    '  }'
+                    '}'
+                )
+            raise AssertionError('Unexpected file path: %s' % path)
+
+        read_swap = self.swap(FILE_CACHE, 'read', mock_read)
+        with read_swap:
+            result = other_files_linter.CustomLintChecksManager(
+                FILE_CACHE
+            ).check_lighthouse_page_coverage()
+        self.assertEqual('Lighthouse page coverage', result.name)
+        self.assertFalse(result.failed)
+
+    def test_check_lighthouse_page_coverage_route_without_import(self) -> None:
+        """A route object that has a key but no lazy import is ignored."""
+
+        def mock_read(path: str) -> str:
+            if path == other_files_linter.APP_ROUTING_MODULE_FILEPATH:
+                return '\n'.join(
+                    [
+                        'const routes: Route[] = [',
+                        '  {',
+                        '    path: AppConstants.PAGES_REGISTERED_WITH_FRONTEND'
+                        '.SPLASH.ROUTE,',
+                        '    loadChildren: () =>',
+                        '      import(\'pages/splash-page/splash-page.module\')',
+                        '  },',
+                        '  {',
+                        '    path: AppConstants.PAGES_REGISTERED_WITH_FRONTEND'
+                        '.REDIRECT.ROUTE,',
+                        '    data: {title: \'Redirect\'},',
+                        '  },',
+                        '];',
+                    ]
+                )
+            if path == other_files_linter.LIGHTHOUSE_PAGES_JSON_FILEPATH:
+                return (
+                    '{'
+                    '  "splash": {'
+                    '    "url": "http://localhost:8181/",'
+                    '    "page_module": '
+                    '"core/templates/pages/splash-page/splash-page.module.ts"'
                     '  }'
                     '}'
                 )
