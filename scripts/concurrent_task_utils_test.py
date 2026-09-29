@@ -325,6 +325,60 @@ class TaskRetryBehaviorTests(ConcurrentTaskUtilsTests):
         self.assertEqual(str(task.exception), 'Error -11')
         self.assertEqual(call_count, 3)
 
+    def test_create_task_with_keyboard_interrupt_skips_error_log(self) -> None:
+        """Tests that a KeyboardInterrupt error is recorded without logging."""
+
+        def mock_func() -> List[concurrent_task_utils.TaskResult]:
+            raise Exception('KeyboardInterrupt')
+
+        task = concurrent_task_utils.create_task(
+            func=mock_func,
+            verbose=True,
+            semaphore=self.semaphore,
+            name='keyboard_interrupt_task',
+            report_enabled=False,
+            errors_to_retry_on=[],
+        )
+        task.start_time = time.time()
+        with self.print_swap:
+            task.start()
+            task.join()
+
+        self.assertEqual(task.num_attempts, 1)
+        self.assertTrue(task.finished)
+        self.assertEqual(str(task.exception), 'KeyboardInterrupt')
+        self.assertIsNotNone(task.stacktrace)
+        self.assertFalse(any('ERROR' in line for line in self.task_stdout))
+
+    def test_task_thread_does_not_run_when_attempts_exhausted(self) -> None:
+        """Tests that run() skips the task when no attempts are left."""
+        call_count = 0
+
+        def mock_func() -> List[concurrent_task_utils.TaskResult]:
+            nonlocal call_count
+            call_count += 1
+            return []
+
+        task = concurrent_task_utils.create_task(
+            func=mock_func,
+            verbose=False,
+            semaphore=self.semaphore,
+            name='exhausted_task',
+            report_enabled=False,
+            errors_to_retry_on=[],
+        )
+        task.start_time = time.time()
+        task.num_attempts = concurrent_task_utils.MAX_ATTEMPTS
+        self.semaphore.acquire()
+        task.start()
+        task.join()
+
+        self.assertEqual(call_count, 0)
+        self.assertTrue(task.finished)
+        self.assertIsNone(task.exception)
+        # The finally block should have released the semaphore.
+        self.assertTrue(self.semaphore.acquire(blocking=False))
+
     def test_retry_on_partial_error_substring_match(self) -> None:
         """Tests that retrying occurs when only a subset of the error messages
         match.
