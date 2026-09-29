@@ -263,6 +263,47 @@ class JsTsLintTests(test_utils.LinterTestBase):
         self.assertIn('25:3    Duplicate identifier', trimmed_output)
         self.assertIn('24:3    Variable never used', trimmed_output)
 
+    def test_compile_all_ts_files_without_error(self) -> None:
+        def mock_popen_success_call(  # pylint: disable=unused-argument
+            *args: str, **kwargs: str
+        ) -> MockProcess:
+            return MockProcess(returncode=0, stdout=b'', stderr=b'')
+
+        popen_swap = self.swap(subprocess, 'Popen', mock_popen_success_call)
+        with popen_swap:
+            js_ts_linter.compile_all_ts_files()
+
+    def test_eslint_integration_short_output_is_not_trimmed(self) -> None:
+        """Test ESLint output with fewer than four lines skips footer check."""
+        mock_eslint_output = (
+            f'{INVALID_TS_FILEPATH}\n'
+            '  25:3  error  Duplicate identifier  '
+            '@typescript-eslint/no-redeclare'
+        )
+
+        def mock_exists(unused_path: str) -> bool:
+            return True
+
+        def mock_popen(  # pylint: disable=unused-argument
+            *args: str, **kwargs: str
+        ) -> MockProcess:
+            return MockProcess(
+                returncode=1,
+                stdout=mock_eslint_output.encode('utf-8'),
+                stderr=b'',
+            )
+
+        exists_swap = self.swap(os.path, 'exists', mock_exists)
+        popen_swap = self.swap(subprocess, 'Popen', mock_popen)
+
+        with exists_swap, popen_swap:
+            lint_task_report = js_ts_linter.ThirdPartyJsTsLintChecksManager(
+                [INVALID_TS_FILEPATH]
+            ).perform_all_lint_checks()
+
+        trimmed_output = ''.join(lint_task_report[0].trimmed_messages)
+        self.assertIn('25:3    Duplicate identifier', trimmed_output)
+
     def test_eslint_integration_no_footer_removal(self) -> None:
         """Test ESLint when footer removal conditions are not met."""
         mock_eslint_output = f"""
