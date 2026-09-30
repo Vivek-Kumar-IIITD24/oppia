@@ -2040,6 +2040,21 @@ class TranslationOpportunityServicesUnitTest(test_utils.GenericTestBase):
                 'invalid', ['id']
             )
 
+    def test_compute_topic_ids_with_partially_found_entities(self) -> None:
+        result = opportunity_services._compute_topic_ids_of_translation_opportunities(  # pylint: disable=protected-access
+            {
+                feconf.ENTITY_TYPE_EXPLORATION: ['exp_1', 'missing_exp'],
+                feconf.ENTITY_TYPE_STORY: ['story_id_1', 'missing_story'],
+                feconf.ENTITY_TYPE_SKILL: ['skill_id_1', 'missing_skill'],
+            }
+        )
+        self.assertIn('exp_1', result)
+        self.assertIn('story_id_1', result)
+        self.assertIn('skill_id_1', result)
+        self.assertNotIn('missing_exp', result)
+        self.assertNotIn('missing_story', result)
+        self.assertNotIn('missing_skill', result)
+
     def test_compute_topic_ids_with_unsupported_type_raises_exception(
         self,
     ) -> None:
