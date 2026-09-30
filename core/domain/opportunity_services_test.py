@@ -40,6 +40,7 @@ from core.domain import (
     subtopic_page_services,
     suggestion_services,
     topic_domain,
+    topic_fetchers,
     topic_services,
     translation_domain,
     translation_services,
@@ -2054,12 +2055,12 @@ class TranslationOpportunityServicesUnitTest(test_utils.GenericTestBase):
         topic.get_all_skill_ids.return_value = ['skill_other', 'skill_id_1']
 
         summaries_swap = self.swap(
-            opportunity_services.topic_fetchers,
+            topic_fetchers,
             'get_all_topic_summaries',
             lambda: [topic_summary],
         )
         topics_swap = self.swap(
-            opportunity_services.topic_fetchers,
+            topic_fetchers,
             'get_all_topics',
             lambda: [topic],
         )
@@ -2079,6 +2080,22 @@ class TranslationOpportunityServicesUnitTest(test_utils.GenericTestBase):
                 'skill_id_1': ['topic_id_1'],
             },
         )
+
+    def test_remove_topic_from_opportunities_with_missing_models(self) -> None:
+        opportunity_services.remove_topic_from_translation_opportunities(
+            'topic_id_1', {feconf.ENTITY_TYPE_EXPLORATION: ['missing_exp']}
+        )
+        self.assertIsNone(
+            opportunity_models.TranslationOpportunityModel.get(
+                f'{feconf.ENTITY_TYPE_EXPLORATION}.missing_exp', strict=False
+            )
+        )
+
+    def test_save_multi_translation_opportunities_with_empty_list(self) -> None:
+        save_function = (
+            opportunity_services._save_multi_translation_opportunities  # pylint: disable=protected-access
+        )
+        self.assertIsNone(save_function([]))
 
     def test_compute_topic_ids_with_partially_found_entities(self) -> None:
         result = opportunity_services._compute_topic_ids_of_translation_opportunities(  # pylint: disable=protected-access

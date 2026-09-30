@@ -1635,7 +1635,8 @@ def _get_translation_opportunity_cards_from_models(
             if skill_val_obj:
                 entity_description = skill_val_obj.description
 
-        elif model_entity_type == feconf.ENTITY_TYPE_TOPIC:
+        else:
+            assert model_entity_type == feconf.ENTITY_TYPE_TOPIC
             currently_available_to_learners = (
                 model.entity_id in published_topic_ids
             )
