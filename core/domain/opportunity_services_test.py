@@ -2040,6 +2040,46 @@ class TranslationOpportunityServicesUnitTest(test_utils.GenericTestBase):
                 'invalid', ['id']
             )
 
+    def test_compute_topic_ids_skips_entities_that_were_not_requested(
+        self,
+    ) -> None:
+        topic_summary = unittest.mock.Mock()
+        topic_summary.id = 'topic_id_1'
+        topic_summary.published_story_exploration_mapping = {
+            'story_other': ['exp_other'],
+            'story_id_1': ['exp_other', 'exp_1'],
+        }
+        topic = unittest.mock.Mock()
+        topic.id = 'topic_id_1'
+        topic.get_all_skill_ids.return_value = ['skill_other', 'skill_id_1']
+
+        summaries_swap = self.swap(
+            opportunity_services.topic_fetchers,
+            'get_all_topic_summaries',
+            lambda: [topic_summary],
+        )
+        topics_swap = self.swap(
+            opportunity_services.topic_fetchers,
+            'get_all_topics',
+            lambda: [topic],
+        )
+        with summaries_swap, topics_swap:
+            result = opportunity_services._compute_topic_ids_of_translation_opportunities(  # pylint: disable=protected-access
+                {
+                    feconf.ENTITY_TYPE_EXPLORATION: ['exp_1'],
+                    feconf.ENTITY_TYPE_STORY: ['story_id_1'],
+                    feconf.ENTITY_TYPE_SKILL: ['skill_id_1'],
+                }
+            )
+        self.assertEqual(
+            result,
+            {
+                'exp_1': ['topic_id_1'],
+                'story_id_1': ['topic_id_1'],
+                'skill_id_1': ['topic_id_1'],
+            },
+        )
+
     def test_compute_topic_ids_with_partially_found_entities(self) -> None:
         result = opportunity_services._compute_topic_ids_of_translation_opportunities(  # pylint: disable=protected-access
             {
