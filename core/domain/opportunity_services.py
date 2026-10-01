@@ -2357,13 +2357,14 @@ def update_pinned_opportunity_model(
             entity_type=entity_type,
         )
     else:
-        if pinned_opportunity:
-            # Update the model's opportunity_id and entity_type.
-            pinned_opportunity.opportunity_id = lesson_id
-            if lesson_id is not None:
-                pinned_opportunity.entity_type = entity_type
-            pinned_opportunity.update_timestamps()
-            pinned_opportunity.put()
+        # The checks above guarantee that the model exists here.
+        assert pinned_opportunity is not None
+        # Update the model's opportunity_id and entity_type.
+        pinned_opportunity.opportunity_id = lesson_id
+        if lesson_id is not None:
+            pinned_opportunity.entity_type = entity_type
+        pinned_opportunity.update_timestamps()
+        pinned_opportunity.put()
 
 
 def get_pinned_lesson(

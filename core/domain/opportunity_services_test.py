@@ -2097,6 +2097,68 @@ class TranslationOpportunityServicesUnitTest(test_utils.GenericTestBase):
         )
         self.assertIsNone(save_function([]))
 
+    def test_create_translation_opportunity_with_no_entities(self) -> None:
+        opportunity_services.create_translation_opportunity({})
+        self.assertIsNone(
+            opportunity_models.TranslationOpportunityModel.get(
+                f'{feconf.ENTITY_TYPE_EXPLORATION}.nonexistent', strict=False
+            )
+        )
+
+    def test_in_review_count_ignores_missing_suggestions(self) -> None:
+        suggestions_swap = self.swap(
+            suggestion_services,
+            'get_translation_suggestions_in_review_by_entity_ids',
+            lambda *_: [None],
+        )
+        count_function = (
+            opportunity_services._build_entity_id_to_translation_suggestion_in_review_count  # pylint: disable=protected-access
+        )
+        with suggestions_swap:
+            counts = count_function(['exp_1'], 'hi')
+        self.assertEqual(dict(counts), {})
+
+    @test_utils.enable_feature_flags(
+        [
+            feature_flag_list.FeatureNames.ENABLE_TRANSLATION_OPPORTUNITIES_WITH_NEW_OPP_MODELS
+        ]
+    )
+    def test_compute_translation_opp_models_when_entity_language_is_complete(
+        self,
+    ) -> None:
+        opp_models = opportunity_services.compute_translation_opportunity_models_with_updated_entity(
+            feconf.ENTITY_TYPE_EXPLORATION, 'exp_1', 3, {'en': 3}
+        )
+        self.assertEqual(len(opp_models), 1)
+        self.assertNotIn(
+            'en', opp_models[0].incomplete_translation_language_codes
+        )
+
+    def test_compute_exp_opp_models_when_exploration_language_is_complete(
+        self,
+    ) -> None:
+        opp_models = opportunity_services.compute_opportunity_models_with_updated_exploration(
+            'exp_1', 3, {'en': 3}
+        )
+        self.assertEqual(len(opp_models), 1)
+
+    def test_create_exp_opportunity_summary_when_exploration_language_complete(
+        self,
+    ) -> None:
+        complete_swap = self.swap(
+            translation_services,
+            'get_languages_with_complete_translation',
+            lambda _: ['en'],
+        )
+        with complete_swap:
+            summary = opportunity_services.create_exp_opportunity_summary(
+                topic_fetchers.get_topic_by_id('topic_id_1'),
+                story_fetchers.get_story_by_id('story_id_1'),
+                exp_fetchers.get_exploration_by_id('exp_1'),
+            )
+        self.assertEqual(summary.id, 'exp_1')
+        self.assertNotIn('en', summary.incomplete_translation_language_codes)
+
     def test_compute_topic_ids_with_partially_found_entities(self) -> None:
         result = opportunity_services._compute_topic_ids_of_translation_opportunities(  # pylint: disable=protected-access
             {
