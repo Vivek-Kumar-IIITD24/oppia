@@ -1526,6 +1526,41 @@ class SkillServicesUnitTests(test_utils.GenericTestBase):
 
         self.assertEqual(skill.misconceptions, [])
 
+    def test_update_skill_applies_misconception_deletion_and_description_update(
+        self,
+    ) -> None:
+        skill = skill_fetchers.get_skill_by_id(self.SKILL_ID)
+        self.assertEqual(len(skill.misconceptions), 1)
+        self.assertEqual(skill.description, 'Description')
+
+        changelist = [
+            skill_domain.SkillChange(
+                {
+                    'cmd': skill_domain.CMD_DELETE_SKILL_MISCONCEPTION,
+                    'misconception_id': self.MISCONCEPTION_ID_1,
+                }
+            ),
+            skill_domain.SkillChange(
+                {
+                    'cmd': skill_domain.CMD_UPDATE_SKILL_PROPERTY,
+                    'property_name': skill_domain.SKILL_PROPERTY_DESCRIPTION,
+                    'old_value': 'Description',
+                    'new_value': 'New Description',
+                }
+            ),
+        ]
+
+        skill_services.update_skill(
+            self.user_id_admin,
+            self.SKILL_ID,
+            changelist,
+            'Delete misconception and update description.',
+        )
+        skill = skill_fetchers.get_skill_by_id(self.SKILL_ID)
+
+        self.assertEqual(skill.misconceptions, [])
+        self.assertEqual(skill.description, 'New Description')
+
     def test_does_skill_with_description_exist(self) -> None:
         self.assertEqual(
             skill_services.does_skill_with_description_exist('Description'),
