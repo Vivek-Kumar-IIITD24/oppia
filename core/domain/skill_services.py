@@ -435,9 +435,8 @@ def get_rubrics_of_skills(
     ] = {}
 
     for skill in skills:
-        if skill is not None:
-            rubric_dicts = [rubric.to_dict() for rubric in skill.rubrics]
-            skill_id_to_rubrics_dict[skill.id] = rubric_dicts
+        rubric_dicts = [rubric.to_dict() for rubric in skill.rubrics]
+        skill_id_to_rubrics_dict[skill.id] = rubric_dicts
 
     deleted_skill_ids = []
     for skill_id in skill_ids:
@@ -464,10 +463,9 @@ def get_descriptions_of_skills(
     skill_id_to_description_dict: Dict[str, str] = {}
 
     for skill_summary in skill_summaries:
-        if skill_summary is not None:
-            skill_id_to_description_dict[skill_summary.id] = (
-                skill_summary.description
-            )
+        skill_id_to_description_dict[skill_summary.id] = (
+            skill_summary.description
+        )
 
     deleted_skill_ids = []
     for skill_id in skill_ids:
@@ -955,12 +953,13 @@ def apply_change_list(
                     skill.update_superseding_skill_id(
                         update_superseding_skill_id_cmd.new_value
                     )
-                elif (
-                    change.property_name
-                    == skill_domain.SKILL_PROPERTY_ALL_QUESTIONS_MERGED
-                ):
-                    # Here we use cast because this 'elif'
-                    # condition forces change to have type
+                else:
+                    assert (
+                        change.property_name
+                        == skill_domain.SKILL_PROPERTY_ALL_QUESTIONS_MERGED
+                    )
+                    # Here we use cast because the assert above forces
+                    # change to have type
                     # UpdateSkillPropertyAllQuestionsMergedCmd.
                     update_all_questions_merged_cmd = cast(
                         skill_domain.UpdateSkillPropertyAllQuestionsMergedCmd,
@@ -970,22 +969,21 @@ def apply_change_list(
                         update_all_questions_merged_cmd.new_value
                     )
             elif change.cmd == skill_domain.CMD_UPDATE_SKILL_CONTENTS_PROPERTY:
-                if (
+                assert (
                     change.property_name
                     == skill_domain.SKILL_CONTENTS_PROPERTY_EXPLANATION
-                ):
-                    # Here we use cast because this 'if'
-                    # condition forces change to have type
-                    # UpdateSkillContentsPropertyExplanationCmd.
-                    update_explanation_cmd = cast(
-                        skill_domain.UpdateSkillContentsPropertyExplanationCmd,
-                        change,
-                    )
-                    explanation = state_domain.SubtitledHtml.from_dict(
-                        update_explanation_cmd.new_value
-                    )
-                    explanation.validate()
-                    skill.update_explanation(explanation)
+                )
+                # Here we use cast because the assert above forces change
+                # to have type UpdateSkillContentsPropertyExplanationCmd.
+                update_explanation_cmd = cast(
+                    skill_domain.UpdateSkillContentsPropertyExplanationCmd,
+                    change,
+                )
+                explanation = state_domain.SubtitledHtml.from_dict(
+                    update_explanation_cmd.new_value
+                )
+                explanation.validate()
+                skill.update_explanation(explanation)
             elif change.cmd == skill_domain.CMD_ADD_SKILL_MISCONCEPTION:
                 # Here we use cast because we are narrowing down the type from
                 # SkillChange to a specific change command.
@@ -1096,11 +1094,12 @@ def apply_change_list(
                     )
                 else:
                     raise Exception('Invalid change dict.')
-            elif change.cmd in (
-                skill_domain.CMD_MIGRATE_CONTENTS_SCHEMA_TO_LATEST_VERSION,
-                skill_domain.CMD_MIGRATE_MISCONCEPTIONS_SCHEMA_TO_LATEST_VERSION,  # pylint: disable=line-too-long
-                skill_domain.CMD_MIGRATE_RUBRICS_SCHEMA_TO_LATEST_VERSION,
-            ):
+            else:
+                assert change.cmd in (
+                    skill_domain.CMD_MIGRATE_CONTENTS_SCHEMA_TO_LATEST_VERSION,
+                    skill_domain.CMD_MIGRATE_MISCONCEPTIONS_SCHEMA_TO_LATEST_VERSION,  # pylint: disable=line-too-long
+                    skill_domain.CMD_MIGRATE_RUBRICS_SCHEMA_TO_LATEST_VERSION,
+                )
                 # Loading the skill model from the datastore into a
                 # skill domain object automatically converts it to use the
                 # latest schema version. As a result, simply resaving the
