@@ -1797,6 +1797,63 @@ class SkillServicesUnitTests(test_utils.GenericTestBase):
         self.assertEqual(skill.misconceptions, [])
         self.assertEqual(skill.description, 'New Description')
 
+    def test_update_skill_ignores_prerequisite_skill_ids_property_change(
+        self,
+    ) -> None:
+        skill = skill_fetchers.get_skill_by_id(self.SKILL_ID)
+        changelist = [
+            skill_domain.SkillChange(
+                {
+                    'cmd': skill_domain.CMD_UPDATE_SKILL_PROPERTY,
+                    'property_name': (
+                        skill_domain.SKILL_PROPERTY_PREREQUISITE_SKILL_IDS
+                    ),
+                    'old_value': skill.prerequisite_skill_ids,
+                    'new_value': ['other_skill_id'],
+                }
+            )
+        ]
+
+        skill_services.update_skill(
+            self.user_id_admin,
+            self.SKILL_ID,
+            changelist,
+            'Updated prerequisite skill ids.',
+        )
+
+        updated_skill = skill_fetchers.get_skill_by_id(self.SKILL_ID)
+        self.assertEqual(
+            updated_skill.prerequisite_skill_ids, skill.prerequisite_skill_ids
+        )
+        self.assertEqual(updated_skill.description, skill.description)
+        self.assertEqual(updated_skill.language_code, skill.language_code)
+
+    def test_update_skill_ignores_create_new_change(self) -> None:
+        skill = skill_fetchers.get_skill_by_id(self.SKILL_ID)
+        changelist = [
+            skill_domain.SkillChange({'cmd': skill_domain.CMD_CREATE_NEW})
+        ]
+
+        skill_services.update_skill(
+            self.user_id_admin,
+            self.SKILL_ID,
+            changelist,
+            'Applied create_new change.',
+        )
+
+        updated_skill = skill_fetchers.get_skill_by_id(self.SKILL_ID)
+        self.assertEqual(updated_skill.description, skill.description)
+        self.assertEqual(
+            [
+                misconception.id
+                for misconception in updated_skill.misconceptions
+            ],
+            [misconception.id for misconception in skill.misconceptions],
+        )
+        self.assertEqual(
+            updated_skill.prerequisite_skill_ids, skill.prerequisite_skill_ids
+        )
+
     def test_does_skill_with_description_exist(self) -> None:
         self.assertEqual(
             skill_services.does_skill_with_description_exist('Description'),
