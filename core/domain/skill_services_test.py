@@ -762,6 +762,58 @@ class SkillServicesUnitTests(test_utils.GenericTestBase):
         self.assertEqual(topic_assignments[1].topic_version, 1)
         self.assertEqual(topic_assignments[1].subtopic_id, 1)
 
+    def test_get_all_topic_assignments_for_skill_skips_subtopics_without_skill(
+        self,
+    ) -> None:
+        topic_id = topic_fetchers.get_new_topic_id()
+        subtopic_without_skill = topic_domain.Subtopic.from_dict(
+            {
+                'id': 1,
+                'title': 'subtopic1',
+                'skill_ids': [],
+                'thumbnail_filename': None,
+                'thumbnail_bg_color': None,
+                'thumbnail_size_in_bytes': None,
+                'url_fragment': 'subtopic-one',
+            }
+        )
+        subtopic_with_skill = topic_domain.Subtopic.from_dict(
+            {
+                'id': 2,
+                'title': 'subtopic2',
+                'skill_ids': [self.SKILL_ID],
+                'thumbnail_filename': None,
+                'thumbnail_bg_color': None,
+                'thumbnail_size_in_bytes': None,
+                'url_fragment': 'subtopic-two',
+            }
+        )
+        # The subtopic without the skill is listed first, so the search has
+        # to move past it to find the subtopic that has the skill.
+        self.save_new_topic(
+            topic_id,
+            self.USER_ID,
+            name='Topic1',
+            abbreviated_name='topic-seven',
+            url_fragment='topic-seven',
+            description='Description',
+            canonical_story_ids=[],
+            additional_story_ids=[],
+            uncategorized_skill_ids=[],
+            subtopics=[subtopic_without_skill, subtopic_with_skill],
+            next_subtopic_id=3,
+        )
+
+        topic_assignments = skill_services.get_all_topic_assignments_for_skill(
+            self.SKILL_ID
+        )
+
+        self.assertEqual(len(topic_assignments), 1)
+        self.assertEqual(topic_assignments[0].topic_name, 'Topic1')
+        self.assertEqual(topic_assignments[0].topic_id, topic_id)
+        self.assertEqual(topic_assignments[0].topic_version, 1)
+        self.assertEqual(topic_assignments[0].subtopic_id, 2)
+
     def test_remove_skill_from_all_topics(self) -> None:
         topic_id = topic_fetchers.get_new_topic_id()
         topic_id_1 = topic_fetchers.get_new_topic_id()
