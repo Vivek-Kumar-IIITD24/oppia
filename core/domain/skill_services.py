@@ -1253,10 +1253,9 @@ def update_skill(
                 content_count,
                 translation_counts,
             )
-            if updated_opp_models:
-                opp_model_cls = opportunity_models.TranslationOpportunityModel
-                opp_model_cls.update_timestamps_multi(updated_opp_models)
-                opp_model_cls.put_multi(updated_opp_models)
+            opp_model_cls = opportunity_models.TranslationOpportunityModel
+            opp_model_cls.update_timestamps_multi(updated_opp_models)
+            opp_model_cls.put_multi(updated_opp_models)
 
     misconception_is_deleted = any(
         change.cmd == skill_domain.CMD_DELETE_SKILL_MISCONCEPTION
