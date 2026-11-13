@@ -862,6 +862,99 @@ class SkillServicesUnitTests(test_utils.GenericTestBase):
         )
         self.assertEqual(len(topic_assignments_dict), 0)
 
+    def test_remove_skill_from_all_topics_skips_topics_without_skill(
+        self,
+    ) -> None:
+        topic_id_with_skill = topic_fetchers.get_new_topic_id()
+        topic_id_without_skill = topic_fetchers.get_new_topic_id()
+        self.save_new_topic(
+            topic_id_with_skill,
+            self.USER_ID,
+            name='Topic1',
+            abbreviated_name='topic-seven',
+            url_fragment='topic-seven',
+            description='Description',
+            canonical_story_ids=[],
+            additional_story_ids=[],
+            uncategorized_skill_ids=[self.SKILL_ID],
+            subtopics=[],
+            next_subtopic_id=1,
+        )
+        self.save_new_topic(
+            topic_id_without_skill,
+            self.USER_ID,
+            name='Topic2',
+            abbreviated_name='topic-eight',
+            url_fragment='topic-eight',
+            description='Description2',
+            canonical_story_ids=[],
+            additional_story_ids=[],
+            uncategorized_skill_ids=[],
+            subtopics=[],
+            next_subtopic_id=1,
+        )
+
+        skill_services.remove_skill_from_all_topics(self.USER_ID, self.SKILL_ID)
+
+        self.assertEqual(
+            skill_services.get_all_topic_assignments_for_skill(self.SKILL_ID),
+            [],
+        )
+        topic_without_skill = topic_fetchers.get_topic_by_id(
+            topic_id_without_skill
+        )
+        self.assertEqual(topic_without_skill.version, 1)
+
+    def test_remove_skill_from_all_topics_skips_subtopics_without_skill(
+        self,
+    ) -> None:
+        topic_id = topic_fetchers.get_new_topic_id()
+        subtopic_without_skill = topic_domain.Subtopic.from_dict(
+            {
+                'id': 1,
+                'title': 'subtopic1',
+                'skill_ids': [],
+                'thumbnail_filename': None,
+                'thumbnail_bg_color': None,
+                'thumbnail_size_in_bytes': None,
+                'url_fragment': 'subtopic-one',
+            }
+        )
+        subtopic_with_skill = topic_domain.Subtopic.from_dict(
+            {
+                'id': 2,
+                'title': 'subtopic2',
+                'skill_ids': [self.SKILL_ID],
+                'thumbnail_filename': None,
+                'thumbnail_bg_color': None,
+                'thumbnail_size_in_bytes': None,
+                'url_fragment': 'subtopic-two',
+            }
+        )
+        self.save_new_topic(
+            topic_id,
+            self.USER_ID,
+            name='Topic1',
+            abbreviated_name='topic-seven',
+            url_fragment='topic-seven',
+            description='Description',
+            canonical_story_ids=[],
+            additional_story_ids=[],
+            uncategorized_skill_ids=[],
+            subtopics=[subtopic_without_skill, subtopic_with_skill],
+            next_subtopic_id=3,
+        )
+
+        skill_services.remove_skill_from_all_topics(self.USER_ID, self.SKILL_ID)
+
+        self.assertEqual(
+            skill_services.get_all_topic_assignments_for_skill(self.SKILL_ID),
+            [],
+        )
+        topic = topic_fetchers.get_topic_by_id(topic_id)
+        self.assertEqual(len(topic.subtopics), 2)
+        self.assertEqual(topic.subtopics[1].skill_ids, [])
+
     def test_delete_skill_and_remove_it_as_prereq_from_all_skills(self) -> None:
         skill = skill_fetchers.get_skill_by_id(self.SKILL_ID)
         self.assertEqual(
@@ -974,6 +1067,57 @@ class SkillServicesUnitTests(test_utils.GenericTestBase):
             skill_services.get_all_topic_assignments_for_skill('new_skill_id')
         )
         self.assertEqual(len(topic_assignments_dict), 2)
+
+    def test_replace_skill_id_in_all_topics_skips_topics_without_old_skill(
+        self,
+    ) -> None:
+        topic_id_with_skill = topic_fetchers.get_new_topic_id()
+        topic_id_without_skill = topic_fetchers.get_new_topic_id()
+        self.save_new_topic(
+            topic_id_with_skill,
+            self.USER_ID,
+            name='Topic1',
+            abbreviated_name='topic-seven',
+            url_fragment='topic-seven',
+            description='Description',
+            canonical_story_ids=[],
+            additional_story_ids=[],
+            uncategorized_skill_ids=[self.SKILL_ID],
+            subtopics=[],
+            next_subtopic_id=1,
+        )
+        self.save_new_topic(
+            topic_id_without_skill,
+            self.USER_ID,
+            name='Topic2',
+            abbreviated_name='topic-eight',
+            url_fragment='topic-eight',
+            description='Description2',
+            canonical_story_ids=[],
+            additional_story_ids=[],
+            uncategorized_skill_ids=[],
+            subtopics=[],
+            next_subtopic_id=1,
+        )
+
+        skill_services.replace_skill_id_in_all_topics(
+            self.USER_ID, self.SKILL_ID, 'new_skill_id'
+        )
+
+        self.assertEqual(
+            skill_services.get_all_topic_assignments_for_skill(self.SKILL_ID),
+            [],
+        )
+        topic_assignments = skill_services.get_all_topic_assignments_for_skill(
+            'new_skill_id'
+        )
+        self.assertEqual(len(topic_assignments), 1)
+        self.assertEqual(topic_assignments[0].topic_id, topic_id_with_skill)
+        self.assertEqual(topic_assignments[0].topic_name, 'Topic1')
+        topic_without_skill = topic_fetchers.get_topic_by_id(
+            topic_id_without_skill
+        )
+        self.assertEqual(topic_without_skill.version, 1)
 
     def test_failure_replace_skill_id_in_all_topics(self) -> None:
         topic_id = topic_fetchers.get_new_topic_id()
