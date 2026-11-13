@@ -1272,6 +1272,46 @@ class SkillServicesUnitTests(test_utils.GenericTestBase):
         model = opportunity_models.TranslationOpportunityModel.get(model_id)
         self.assertEqual(model.entity_type, feconf.ENTITY_TYPE_SKILL)
 
+    @test_utils.enable_feature_flags(
+        [
+            feature_flag_list.FeatureNames.ENABLE_TRANSLATION_OPPORTUNITIES_WITH_NEW_OPP_MODELS
+        ]
+    )
+    def test_update_skill_without_translation_opportunity_does_not_create_one(
+        self,
+    ) -> None:
+        model_id = f'skill.{self.SKILL_ID}'
+        self.assertIsNone(
+            opportunity_models.TranslationOpportunityModel.get(
+                model_id, strict=False
+            )
+        )
+        changelist = [
+            skill_domain.SkillChange(
+                {
+                    'cmd': skill_domain.CMD_UPDATE_SKILL_PROPERTY,
+                    'property_name': skill_domain.SKILL_PROPERTY_DESCRIPTION,
+                    'old_value': 'Description',
+                    'new_value': 'New Description',
+                }
+            )
+        ]
+
+        skill_services.update_skill(
+            self.user_id_admin,
+            self.SKILL_ID,
+            changelist,
+            'Updated skill description.',
+        )
+
+        skill = skill_fetchers.get_skill_by_id(self.SKILL_ID)
+        self.assertEqual(skill.description, 'New Description')
+        self.assertIsNone(
+            opportunity_models.TranslationOpportunityModel.get(
+                model_id, strict=False
+            )
+        )
+
     def test_merge_skill(self) -> None:
         changelist = [
             skill_domain.SkillChange(
