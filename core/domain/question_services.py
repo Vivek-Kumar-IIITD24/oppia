@@ -846,11 +846,12 @@ def apply_change_list(
                     question.update_inapplicable_skill_misconception_ids(
                         update_skill_misconception_ids_cmd.new_value
                     )
-                elif (
-                    change.property_name
-                    == question_domain.QUESTION_PROPERTY_NEXT_CONTENT_ID_INDEX
-                ):
-                    # Here we use cast because this 'if' condition forces
+                else:
+                    assert (
+                        change.property_name
+                        == question_domain.QUESTION_PROPERTY_NEXT_CONTENT_ID_INDEX  # pylint: disable=line-too-long
+                    )
+                    # Here we use cast because this assert forces
                     # change to have type
                     # UpdateQuestionPropertyNextContentIdIndexCmd.
                     cmd = cast(

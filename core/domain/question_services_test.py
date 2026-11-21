@@ -657,6 +657,22 @@ class QuestionServicesUnitTest(test_utils.GenericTestBase):
         ):
             question_models.QuestionSummaryModel.get(self.question_id)
 
+    def test_delete_question_twice_with_force_deletion(self) -> None:
+        question_services.delete_question(
+            self.editor_id, self.question_id, force_deletion=True
+        )
+        self.assertIsNone(
+            question_models.QuestionModel.get_by_id(self.question_id)
+        )
+
+        question_services.delete_question(
+            self.editor_id, self.question_id, force_deletion=True
+        )
+
+        self.assertIsNone(
+            question_models.QuestionModel.get_by_id(self.question_id)
+        )
+
     def test_delete_question_marked_deleted(self) -> None:
         question_models.QuestionModel.delete_multi(
             [self.question_id],
