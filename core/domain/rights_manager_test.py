@@ -642,6 +642,41 @@ class ExplorationRightsTests(test_utils.GenericTestBase):
             rights_manager.check_can_access_activity(self.user_b, exp_rights)
         )
 
+    def test_republishing_exploration_keeps_first_published_time(self) -> None:
+        exp = exp_domain.Exploration.create_default_exploration(
+            self.EXP_ID, title='A title', category='A category'
+        )
+        exp_services.save_new_exploration(self.user_id_a, exp)
+        rights_manager.publish_exploration(self.user_a, self.EXP_ID)
+        first_published_msec = rights_manager.get_exploration_rights(
+            self.EXP_ID
+        ).first_published_msec
+        self.assertIsNotNone(first_published_msec)
+        rights_manager.unpublish_exploration(self.user_moderator, self.EXP_ID)
+
+        rights_manager.publish_exploration(self.user_a, self.EXP_ID)
+
+        exp_rights = rights_manager.get_exploration_rights(self.EXP_ID)
+        self.assertEqual(exp_rights.first_published_msec, first_published_msec)
+
+    def test_user_without_publish_actions_cannot_publish_exploration(
+        self,
+    ) -> None:
+        exp = exp_domain.Exploration.create_default_exploration(
+            self.EXP_ID, title='A title', category='A category'
+        )
+        exp_services.save_new_exploration(self.user_id_a, exp)
+        exp_rights = rights_manager.get_exploration_rights(self.EXP_ID)
+        user_without_publish_actions = user_domain.UserActionsInfo(
+            self.user_id_a, [], []
+        )
+
+        self.assertFalse(
+            rights_manager.check_can_publish_activity(
+                user_without_publish_actions, exp_rights
+            )
+        )
+
     def test_unpublished_exploration_is_removed_from_completed_activities(
         self,
     ) -> None:
