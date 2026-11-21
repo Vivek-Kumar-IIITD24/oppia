@@ -371,6 +371,20 @@ class SkillDomainUnitTests(test_utils.GenericTestBase):
         self.skill.validate()
         self.assertEqual(self.skill.skill_contents.explanation, new_explanation)
 
+    def test_update_explanation_with_new_content_id(self) -> None:
+        new_explanation = state_domain.SubtitledHtml(
+            '4', '<p>New Explanation</p>'
+        )
+
+        self.skill.update_explanation(new_explanation)
+
+        recorded_voiceovers = self.skill.skill_contents.recorded_voiceovers
+        written_translations = self.skill.skill_contents.written_translations
+        self.assertNotIn('1', recorded_voiceovers.voiceovers_mapping)
+        self.assertIn('4', recorded_voiceovers.voiceovers_mapping)
+        self.assertNotIn('1', written_translations.translations_mapping)
+        self.assertIn('4', written_translations.translations_mapping)
+
     def test_update_rubric(self) -> None:
         difficulty = constants.SKILL_DIFFICULTIES[0]
         explanations = ['explanation1']

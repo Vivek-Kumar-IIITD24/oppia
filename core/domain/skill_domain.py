@@ -1771,9 +1771,7 @@ class Skill(translation_domain.BaseTranslatableObject):
         Args:
             explanation: SubtitledHtml. The new explanation of the skill.
         """
-        old_content_ids = []
-        if self.skill_contents.explanation:
-            old_content_ids = [self.skill_contents.explanation.content_id]
+        old_content_ids = [self.skill_contents.explanation.content_id]
 
         self.skill_contents.explanation = explanation
 
