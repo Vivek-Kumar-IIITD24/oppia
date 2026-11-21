@@ -205,6 +205,118 @@ class ContentMigrationTests(test_utils.GenericTestBase):
             actual_output_for_ckeditor, expected_output_for_ckeditor
         )
 
+    def test_wrap_with_siblings_without_next_siblings(self) -> None:
+        soup = bs4.BeautifulSoup('<b>hello</b>', 'html.parser')
+        tag = soup.find(name='b')
+        assert tag is not None
+
+        html_validation_service.wrap_with_siblings(tag, soup.new_tag('p'))
+
+        self.assertEqual(str(soup), '<p><b>hello</b></p>')
+
+    def test_validate_rte_format_with_valid_nested_components(self) -> None:
+        valid_html_strings = [
+            (
+                '<oppia-noninteractive-collapsible content-with-value="&amp;'
+                'quot;&amp;lt;p&amp;gt;lorem ipsum&amp;lt;/p&amp;gt;&amp;'
+                'quot;" heading-with-value="&amp;quot;heading&amp;quot;">'
+                '</oppia-noninteractive-collapsible>'
+            ),
+            (
+                '<oppia-noninteractive-tabs tab_contents-with-value="[{&amp;'
+                'quot;content&amp;quot;:&amp;quot;&amp;lt;p&amp;gt;lorem '
+                'ipsum&amp;lt;/p&amp;gt;&amp;quot;,&amp;quot;title&amp;quot;:'
+                '&amp;quot;hello&amp;quot;}]"></oppia-noninteractive-tabs>'
+            ),
+            (
+                '<oppia-noninteractive-workedexample question-with-value="&amp;'
+                'quot;&amp;lt;p&amp;gt;lorem ipsum&amp;lt;/p&amp;gt;&amp;'
+                'quot;" answer-with-value="&amp;quot;&amp;lt;p&amp;gt;lorem '
+                'ipsum&amp;lt;/p&amp;gt;&amp;quot;">'
+                '</oppia-noninteractive-workedexample>'
+            ),
+        ]
+
+        self.assertEqual(
+            html_validation_service.validate_rte_format(
+                valid_html_strings, feconf.RTE_FORMAT_CKEDITOR
+            ),
+            {'strings': []},
+        )
+
+    def test_validate_customization_args_lists_html_string_once(self) -> None:
+        html_string = (
+            '<oppia-noninteractive-collapsible content-with-value="&amp;'
+            'quot;&amp;lt;oppia-noninteractive-image&amp;gt;&amp;lt;/oppia-'
+            'noninteractive-image&amp;gt;&amp;lt;oppia-noninteractive-image'
+            '&amp;gt;&amp;lt;/oppia-noninteractive-image&amp;gt;&amp;quot;" '
+            'heading-with-value="&amp;quot;heading&amp;quot;">'
+            '</oppia-noninteractive-collapsible>'
+        )
+
+        err_dict = html_validation_service.validate_customization_args(
+            [html_string]
+        )
+
+        self.assertTrue(err_dict)
+        for html_strings in err_dict.values():
+            self.assertEqual(html_strings, [html_string])
+
+    def test_validate_customization_args_ignores_empty_error_messages(
+        self,
+    ) -> None:
+        html_string = (
+            '<oppia-noninteractive-image></oppia-noninteractive-image>'
+        )
+
+        with self.swap(
+            html_validation_service,
+            'validate_customization_args_in_tag',
+            lambda unused_tag: ['', 'Some error'],
+        ):
+            err_dict = html_validation_service.validate_customization_args(
+                [html_string]
+            )
+
+        self.assertEqual(err_dict, {'Some error': [html_string]})
+
+    def test_fix_incorrectly_encoded_chars_with_components_without_attrs(
+        self,
+    ) -> None:
+        html_string = (
+            '<oppia-noninteractive-collapsible>'
+            '</oppia-noninteractive-collapsible>'
+            '<oppia-noninteractive-workedexample>'
+            '</oppia-noninteractive-workedexample>'
+        )
+
+        self.assertEqual(
+            html_validation_service.fix_incorrectly_encoded_chars(html_string),
+            html_string,
+        )
+
+    def test_add_math_content_to_math_rte_components_with_svg_filename(
+        self,
+    ) -> None:
+        html_string = (
+            '<oppia-noninteractive-math raw_latex-with-value="&amp;quot;+,-,-,+'
+            '&amp;quot;" svg_filename-with-value="&amp;quot;mathImg.svg&amp;'
+            'quot;"></oppia-noninteractive-math>'
+        )
+        expected_output = (
+            '<oppia-noninteractive-math math_content-with-value="{&amp;quot;'
+            'raw_latex&amp;quot;: &amp;quot;+,-,-,+&amp;quot;, &amp;quot;'
+            'svg_filename&amp;quot;: &amp;quot;mathImg.svg&amp;quot;}">'
+            '</oppia-noninteractive-math>'
+        )
+
+        self.assertEqual(
+            html_validation_service.add_math_content_to_math_rte_components(
+                html_string
+            ),
+            expected_output,
+        )
+
     def test_validate_soup_for_rte(self) -> None:
         test_cases_for_textangular = [
             (
