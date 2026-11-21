@@ -372,6 +372,139 @@ class LearnerGroupServicesUnitTests(test_utils.GenericTestBase):
                     constants.DEFAULT_LANGUAGE_CODE,
                 )
 
+    def test_create_learner_group_without_invited_learners(self) -> None:
+        group_id = learner_group_fetchers.get_new_learner_group_id()
+
+        learner_group = learner_group_services.create_learner_group(
+            group_id,
+            'Group Without Invites',
+            'Description',
+            [self.FACILITATOR_ID],
+            [],
+            [],
+            [],
+        )
+
+        self.assertEqual(learner_group.invited_learner_user_ids, [])
+
+    def test_get_syllabus_to_add_for_a_new_learner_group(self) -> None:
+        matching_syllabus = (
+            learner_group_services.get_matching_learner_group_syllabus_to_add(
+                '', 'Place', 'All', 'All', constants.DEFAULT_LANGUAGE_CODE
+            )
+        )
+
+        story_summary_dicts = matching_syllabus['story_summary_dicts']
+        self.assertEqual(len(story_summary_dicts), 1)
+        self.assertEqual(story_summary_dicts[0]['id'], self.STORY_ID_0)
+        self.assertEqual(len(matching_syllabus['subtopic_summary_dicts']), 1)
+
+    def test_get_syllabus_to_add_with_unknown_classroom_filter(self) -> None:
+        self.save_new_valid_classroom()
+
+        matching_syllabus = (
+            learner_group_services.get_matching_learner_group_syllabus_to_add(
+                self.LEARNER_GROUP_ID,
+                'Place',
+                'All',
+                'science',
+                constants.DEFAULT_LANGUAGE_CODE,
+            )
+        )
+
+        self.assertEqual(len(matching_syllabus['story_summary_dicts']), 0)
+        self.assertEqual(len(matching_syllabus['subtopic_summary_dicts']), 0)
+
+    def test_get_syllabus_to_add_with_story_search_type(self) -> None:
+        matching_syllabus = (
+            learner_group_services.get_matching_learner_group_syllabus_to_add(
+                self.LEARNER_GROUP_ID,
+                'Place',
+                'Story',
+                'All',
+                constants.DEFAULT_LANGUAGE_CODE,
+            )
+        )
+
+        story_summary_dicts = matching_syllabus['story_summary_dicts']
+        self.assertEqual(len(story_summary_dicts), 1)
+        self.assertEqual(story_summary_dicts[0]['id'], self.STORY_ID_0)
+        self.assertEqual(len(matching_syllabus['subtopic_summary_dicts']), 0)
+
+    def test_get_syllabus_to_add_with_skill_search_type(self) -> None:
+        matching_syllabus = (
+            learner_group_services.get_matching_learner_group_syllabus_to_add(
+                self.LEARNER_GROUP_ID,
+                'Place',
+                'Skill',
+                'All',
+                constants.DEFAULT_LANGUAGE_CODE,
+            )
+        )
+
+        self.assertEqual(len(matching_syllabus['story_summary_dicts']), 0)
+        subtopic_summary_dicts = matching_syllabus['subtopic_summary_dicts']
+        self.assertEqual(len(subtopic_summary_dicts), 1)
+        self.assertEqual(subtopic_summary_dicts[0]['subtopic_id'], 1)
+
+    def test_get_syllabus_to_add_skips_subtopics_already_in_the_group(
+        self,
+    ) -> None:
+        group_id = learner_group_fetchers.get_new_learner_group_id()
+        learner_group_services.create_learner_group(
+            group_id,
+            'Group With Subtopic',
+            'Description',
+            [self.FACILITATOR_ID],
+            [],
+            ['%s:1' % self.TOPIC_ID_0],
+            [],
+        )
+
+        matching_syllabus = (
+            learner_group_services.get_matching_learner_group_syllabus_to_add(
+                group_id,
+                'Place',
+                'All',
+                'All',
+                constants.DEFAULT_LANGUAGE_CODE,
+            )
+        )
+
+        self.assertEqual(len(matching_syllabus['story_summary_dicts']), 1)
+        self.assertEqual(len(matching_syllabus['subtopic_summary_dicts']), 0)
+
+    def test_story_syllabus_item_dicts_with_unmatched_keyword(self) -> None:
+        topic = topic_fetchers.get_topic_by_id(self.TOPIC_ID_0)
+
+        self.assertEqual(
+            learner_group_services.get_matching_story_syllabus_item_dicts(
+                topic, [], 'unmatched keyword'
+            ),
+            [],
+        )
+        self.assertEqual(
+            len(
+                learner_group_services.get_matching_story_syllabus_item_dicts(
+                    topic, [], 'story test'
+                )
+            ),
+            1,
+        )
+
+    def test_remove_invited_learners_not_invited_to_the_group(self) -> None:
+        learner_group_services.remove_invited_learners_from_learner_group(
+            'uninvited_group_id', [self.LEARNER_ID], False
+        )
+
+        user_model = user_models.LearnerGroupsUserModel.get(
+            self.LEARNER_ID, strict=True
+        )
+        self.assertEqual(
+            user_model.invited_to_learner_groups_ids,
+            [self.LEARNER_GROUP_ID, self.LEARNER_GROUP_ID_2],
+        )
+
     def test_add_learner_to_learner_group(self) -> None:
         # Test for invited learner.
         learner_grp = learner_group_fetchers.get_learner_group_by_id(
